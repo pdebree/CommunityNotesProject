@@ -1,0 +1,130 @@
+---
+title: "data_cleaning"
+output: html_document
+date: "2025-11-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Cleaning File 
+
+This .Rmd file contains the data cleaning necessary for our project.
+
+### Library Imports
+```{r}
+library(tidyverse)
+```
+
+
+### Data Imports
+
+The data, from the X website is updated daily. We take one day's worth of data
+
+The notes can be found at the https://communitynotes.x.com/guide/en/under-the-hood/download-data, 
+however it should be noted that only users with X accounts can download the data. 
+
+A good description can be found at the same website.
+
+As an overview the data takes on the following form: 
+- `notes` contains information about a note generally and how it can be 
+
+```{r}
+# contains the notes and their current status
+notes_uncleaned <- read_tsv("data/notes-00000.tsv")
+
+# contains a rating by a specific user on a specific note
+ratings_uncleaned <- read_tsv("data/ratings-00000.tsv")
+
+# contains
+notes_status_history_uncleaned <- read_tsv("data/noteStatusHistory-00000.tsv")
+
+# Contains data for individual raters
+# newUser: newly admitted users, who only have rating ability. 
+# earnedIn: users who've earned writing ability.
+# atRisk: users who are one Not Helpful note away from having writing ability locked. 
+# earnedOutNoAcknowledge: users with writing ability locked that have not yet clicked 
+# the acknowledgement button it in the product. 
+# earnedOutAcknowledge: users who've lost the ability to write and acknowledged 
+# it in the product, at which point their ratings start counting towards going back to earnedIn.
+user_enrollment_status_uncleaned <- read_tsv("data/userEnrollment-00000.tsv")
+
+# Note request data - contains a tweet, and a user who requested a 
+# community note for a specific tweet
+batSignals_cleaned <- read_tsv("data/batSignals-00000.tsv")
+
+# Looking for bad notes 
+# Looking for harmful notes
+```
+
+
+# Cleaning 
+```{r}
+# Cleaning to make time values interpretable 
+notes <- notes_uncleaned %>% mutate(
+  note_text = summary,
+  time_created = as.POSIXct(createdAtMillis/1000, origin = "1970-01-01", tz = "UTC")) %>%
+  dplyr::select(-summary, -createdAtMillis)
+
+ratings <- ratings_uncleaned %>% mutate(
+  time_created = as.POSIXct(createdAtMillis/1000, origin = "1970-01-01", tz = "UTC")) %>% 
+  dplyr::select(-createdAtMillis)
+
+notes_status_history <- notes_status_history_uncleaned %>% mutate(
+  time_created = as.POSIXct(createdAtMillis/1000, origin = "1970-01-01", tz = "UTC"),
+  timestamp_final_scoring_output = as.POSIXct(
+    timestampMinuteOfFinalScoringOutput/1000, origin = "1970-01-01", tz = "UTC"), 
+  timestamp_most_recent_change =  as.POSIXct(
+    timestampMillisOfMostRecentStatusChange/1000, origin = "1970-01-01", tz = "UTC")
+  ) %>% 
+  dplyr::select(-createdAtMillis, -timestampMinuteOfFinalScoringOutput, -timestampMillisOfMostRecentStatusChange)
+
+# batSignals - we can't ge the actual tweet information but here we can look at how well the 
+# response is to a request (based on timestamp)
+batSignals <- batSignals_cleaned %>% mutate(
+  time_created = as.POSIXct(createdAtMillis/1000, origin = "1970-01-01", tz = "UTC")) %>% 
+  dplyr::select(-createdAtMillis)
+
+
+user_enrollment_status_uncleaned
+
+```
+
+
+# Beginnings of Exploring Harmful Notes - Look at how these measure with the Ukraine / Gaza 
+# problems 
+
+
+```{r}
+# Look for notes that individuals have labeled as having the potential for considerable harm 
+notes %>% filter(harmful == "CONSIDERABLE_HARM")
+
+# Could consider looking at which topics are difficult to evaluate, but can cause considerable harm
+# and how this interacts with the complexity of their histrory 
+
+
+```
+
+
+# Time Cleaning 
+
+```{r}
+colnames(notes)
+
+```
+
+
+
+# Look into how the specific topics, from topic modeling, match with different 
+# categories for the complexity and such 
+
+# Pull these directly from the open source code for community notes
+# Also something to be said for how broad this is
+
+```{r}
+
+```
+
+
+ 
