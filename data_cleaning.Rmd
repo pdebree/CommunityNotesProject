@@ -86,10 +86,150 @@ batSignals <- batSignals_cleaned %>% mutate(
   time_created = as.POSIXct(createdAtMillis/1000, origin = "1970-01-01", tz = "UTC")) %>% 
   dplyr::select(-createdAtMillis)
 
-
-user_enrollment_status_uncleaned
+user_enrollment_status <- user_enrollment_status_uncleaned %>% mutate(
+  time_last_earned_out = as.POSIXct(timestampOfLastEarnOut/1000, origin = "1970-01-01", tz = "UTC"), 
+  time_last_state_change = as.POSIXct(timestampOfLastEarnOut/1000, origin = "1970-01-01", tz = "UTC")) %>% 
+  dplyr::select(-timestampOfLastEarnOut, -timestampOfLastStateChange)
 
 ```
+
+
+# Drop NA
+
+There are two notes with missing text values - we'll drop them.
+```{r}
+notes <- notes %>% filter(!is.na(note_text))
+```
+
+
+Interesting to look at how the trends of notes have changed over time generally
+- We can look at both how notes have changed over time, how ratings have changed over
+time. The easiest way to do this is just to look at the counts per month. 
+
+# Consider missing values 
+
+How many missing values does a bad rating make? 
+
+All the missing values come from the helpfulnessLevel column. There are 3,683
+missing values.
+
+```{r}
+colSums(is.na(ratings)) # This gives us that only the helpfulnessLevel 
+# value had missing values - 3693 of them
+
+```
+
+First it is helpful to group by month to see how this changes over time.
+
+```{r}
+notes <- notes %>% mutate(month_year = format(time_created, "%Y-%m")) 
+ratings <- ratings %>% mutate(month_year = format(time_created, "%Y-%m")) 
+```
+
+
+
+
+```{r}
+# Now let's count the missing values by their month
+ratings %>% group_by(month_year) %>% 
+  summarize(na_counts=sum(is.na(helpfulnessLevel)),
+            non_na_counts=sum(!is.na(helpfulnessLevel)))
+```
+
+
+The output from this shows that the `helpfulnessLevel` metric is only missing 
+values in the early months of 2021. Then, in June there are a few non-missing
+values. This implies that this metric was introduced later, and for this 
+reason there are no values in the early months of 2021. (Community Notes
+was started in 2021). 
+
+
+Now let's look at the notes missing values more generally. First, it is 
+helpful to look at the number of missing values from each column. The code below
+does this.
+
+```{r}
+colSums(is.na(notes))
+```
+
+From this, we found that the exact same number of pieces of missing data came
+from three attributes: `harmful`, `believable`, `validationDifficulty`. There 
+seems to be systematic discrepancy here and, again, looking at time will be 
+helpful. We can just look at one of these three values in order to see the
+number of missing values. Let's similarly count the number of missing values
+for each `month_year` value to see if there is an identifiable trend. 
+
+
+```{r}
+notes %>% group_by(month_year) %>% 
+  summarize(harmful_na=sum(is.na(harmful)),
+            harmful_not_na=sum(!is.na(harmful)), 
+            believable_na=sum(is.na(believable)),
+            believable_not_na=sum(!is.na(believable)),
+            validationDifficulty_na=sum(is.na(validationDifficulty)),
+            validationDifficulty_not_na=sum(!is.na(validationDifficulty)))
+
+print(notes %>% group_by(month_year) %>% 
+  summarize(harmful_na=sum(is.na(harmful)),
+            harmful_not_na=sum(!is.na(harmful)), 
+            believable_na=sum(is.na(believable)),
+            believable_not_na=sum(!is.na(believable)),
+            validationDifficulty_na=sum(is.na(validationDifficulty)),
+            validationDifficulty_not_na=sum(!is.na(validationDifficulty))), n=Inf, width=Inf)
+```
+
+
+The above output shows that though not exclusively missing, the NA values for `harmful`, `believable` and  `validationDifficulty` come from the same rows (the counts are the same for the na and non-na groups). 
+There are no values 
+
+All data points miss `harmful`, `believable` and  `validationDifficulty` values after November 2022 (this is also when the program went global). As a result, we drop the columns completely. 
+
+```{r}
+notes <- notes %>% select(-harmful, -believable, -validationDifficulty)
+```
+
+
+
+
+Now that we have month_year combinations we can look a bit into how the number of notes and ratings have changed over time. It is also interesting to see how many ratings per note there are. 
+
+If we group by month and year, we see that the 
+
+```{r}
+notes %>% mutate(month_year = format(time_created, "%Y-%m")) %>% group_by(month_year) %>% summarize(notes=n())
+```
+
+```{r}
+ggplot(data=notes, aes(x=month_year)) + geom_histogram(stat="count")
+ggplot(data=ratings, aes(x=month_year)) + geom_histogram(stat="count")
+ggplot(data=)
+
+
+# Also interesting to look at ratings per note, and see how this has altered over time. 
+```
+
+
+From looking into this data, we think it makes sense to look at a time frame where the platform was being consistently used. Community Notes was initially launched only in the US, in January 2021 but was introduced globally on December 12th 2022. However, it didn't really pick up until March 2023 (the total count of notes went from 5000 to 15000 from February to April). 
+
+Now let's look a bit into notes and ratings combinations. 
+
+
+```{r}
+# Create counts for how many ratings each note has 
+ratings_note_counts <- ratings %>% group_by(noteId) %>% summarize(number_of_ratings=n())
+
+# Add ratings count to the notes dataframe, this allows us to see how the notes compare 
+# over time. 
+notes_w_counts <- left_join(notes, ratings_note_counts, by="noteId")
+
+```
+
+
+
+
+
+
+
 
 
 # Beginnings of Exploring Harmful Notes - Look at how these measure with the Ukraine / Gaza 
@@ -98,13 +238,11 @@ user_enrollment_status_uncleaned
 
 ```{r}
 # Look for notes that individuals have labeled as having the potential for considerable harm 
-notes %>% filter(harmful == "CONSIDERABLE_HARM")
+notes %>% filter(harmful == "CONSIDERABLE_HARM") %>% 
 
-# Could consider looking at which topics are difficult to evaluate, but can cause considerable harm
-# and how this interacts with the complexity of their histrory 
-
-
+# Could consider looking at which topics are difficult to evaluate, but can cause considerable harm and how this interacts with the complexity of their history 
 ```
+
 
 
 # Time Cleaning 
