@@ -15,6 +15,10 @@ This .Rmd file contains the data cleaning necessary for our project.
 ### Library Imports
 ```{r}
 library(tidyverse)
+# For language input
+library(ellmer)
+library(fastText)
+library(cld2)
 ```
 
 
@@ -189,8 +193,6 @@ notes <- notes %>% select(-harmful, -believable, -validationDifficulty)
 ```
 
 
-
-
 Now that we have month_year combinations we can look a bit into how the number of notes and ratings have changed over time. It is also interesting to see how many ratings per note there are. 
 
 If we group by month and year, we see that the 
@@ -226,12 +228,6 @@ notes_w_counts <- left_join(notes, ratings_note_counts, by="noteId")
 
 
 
-
-
-
-
-
-
 # Beginnings of Exploring Harmful Notes - Look at how these measure with the Ukraine / Gaza 
 # problems 
 
@@ -244,7 +240,6 @@ notes %>% filter(harmful == "CONSIDERABLE_HARM") %>%
 ```
 
 
-
 # Time Cleaning 
 
 ```{r}
@@ -252,17 +247,136 @@ colnames(notes)
 
 ```
 
-
-
 # Look into how the specific topics, from topic modeling, match with different 
 # categories for the complexity and such 
 
 # Pull these directly from the open source code for community notes
 # Also something to be said for how broad this is
 
-```{r}
+```{python}
+# This is the code in the X Community Notes topic_modeling.py file that declares specific topics 
+Topics.UkraineConflict: {
+    "ukrain",  # intentionally shortened for expanded matching
+    "russia",
+    "kiev",
+    "kyiv",
+    "moscow",
+    "zelensky",
+    "putin",
+  },
+  Topics.GazaConflict: {
+    "israel",
+    "palestin",  # intentionally shortened for expanded matching
+    "gaza",
+    "jerusalem",
+    "\shamas\s",
+  },
+  Topics.MessiRonaldo: {
+    "messi\s",  # intentional whitespace to prevent prefix matches
+    "ronaldo",
+  },
+  Topics.Scams: {
+    "scam",
+    "undisclosed\sad",  # intentional whitespace
+    "terms\sof\sservice",  # intentional whitespace
+    "help\.x\.com",
+    "x\.com/tos",
+    "engagement\sfarm",  # intentional whitespace
+    "spam",
+    "gambling",
+    "apostas",
+    "apuestas",
+    "dropship",
+    "drop\sship",  # intentional whitespace
+    "promotion",
+  },
+}
 
 ```
 
 
+Limit to just English notes (we need to do this before we can do any work on the ratings)
+ 
+Pre-trained language detection model 
+
+```{r}
+# fastText language detection 
+
+# pretrained_fastText <- system.file("language_identification/lid.176.ftz", package = "fastText")
+# 
+# detect_english <- function(txt) {
+#   language_output <- fastText::language_identification(
+#     input_obj = txt,
+#     pre_trained_language_model_path = pretrained_fastText,
+#     k = 1,
+#     th = 0.0,
+#     verbose = FALSE)
+#   
+#   return(language_output$iso_lang_1 == "en")
+#   
+# }
+# 
+# problem_note <- batched_notes$`173`[172,"noteId"]
+# notes <- notes %>% filter(!(noteId == problem_note))
+# 
+# batch_size <- 1000
+# batched_notes <- notes %>% mutate(batch_id = (row_number() - 1) %/% batch_size) %>%
+#   split(.$batch_id)
+# 
+# # 3. Apply a dplyr pipeline (e.g., summarize each batch)
+# notes_list <- map(batched_notes, ~ .x %>% mutate(
+#   text_length = length(note_text),
+#   check_length = min(text_length, 100),
+#   is_english = cldetect_english(substring(note_text, 1, check_length))))
+# 
+# 
+# notes_lang_english <- bind_rows(notes_list)
+# 
+# # perform language detection and remove non-english notes (based on a threshold of 0.9)
+# notes_h <- notes %>% slice_sample(n=10000) %>% mutate(
+#   text_length = length(note_text), 
+#   check_length = min(text_length, 100),
+#   is_english = detect_english(substring(note_text, 1, check_length))) %>% 
+#   filter(is_english)# %>% select(-is_english)
+# 
+# 
+# 
+```
+
+# Langauge Detection - Limit to Only English
+```{r}
+# google version - the function returns NA if the language could not be
+# reliably detected. 
+notes_lang <- notes %>% mutate(
+  is_english = 
+    ifelse(cld2::detect_language(note_text) == "en", TRUE, FALSE))
+
+notes_english <- notes_lang %>% filter(is_english)
+
+```
+
+
+Using ellmer docs: 
+https://www.oneusefulthing.org/p/using-ai-right-now-a-quick-guide
+https://ellmer.tidyverse.org/index.html
+ 
+
+
+
+
+
+
+
+```{r}
+OPENAI 
+
+chat_openai("Be terse", model = "gpt-4o-mini")
+
+```
+ 
+ 
+ 
+ 
+ 
+ 
  
